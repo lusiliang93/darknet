@@ -313,13 +313,23 @@ void test_yolo(char *cfgfile, char *weightfile, char *filename, float thresh)
         image im = load_image_color(input,0,0);
         image sized = resize_image(im, net.w, net.h);
         float *X = sized.data;
+        //create a .txt file
+        FILE *output;
+        char *outputname="count.txt";
+        output=fopen(outputname,"w+");
+        int countp=0;
+
         time=clock();
         network_predict(net, X);
         printf("%s: Predicted in %f seconds.\n", input, sec(clock()-time));
         get_detection_boxes(l, 1, 1, thresh, probs, boxes, 0);
         if (nms) do_nms_sort(boxes, probs, l.side*l.side*l.n, l.classes, nms);
         //draw_detections(im, l.side*l.side*l.n, thresh, boxes, probs, voc_names, alphabet, 20);
-        draw_detections(im, l.side*l.side*l.n, thresh, boxes, probs, voc_names, alphabet, 20);
+        draw_detections(im, l.side*l.side*l.n, thresh, boxes, probs, voc_names, alphabet, 20,&countp);
+        fprintf(output,"%d ",countp);
+        fclose(output);
+        printf("count=%d\n",countp);
+
         save_image(im, "predictions");
         show_image(im, "predictions");
 

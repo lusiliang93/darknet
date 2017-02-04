@@ -37,6 +37,9 @@ static float *predictions[FRAMES];
 static int demo_index = 0;
 static image images[FRAMES];
 static float *avg;
+//an int array to store occupant number in the image of a video
+static int *countpv;
+static int countp;
 
 void *fetch_in_thread(void *ptr)
 {
@@ -78,7 +81,9 @@ void *detect_in_thread(void *ptr)
     det = images[(demo_index + FRAMES/2 + 1)%FRAMES];
     demo_index = (demo_index + 1)%FRAMES;
 
-    draw_detections(det, l.w*l.h*l.n, demo_thresh, boxes, probs, demo_names, demo_alphabet, demo_classes);
+    countp=0;
+    draw_detections(det, l.w*l.h*l.n, demo_thresh, boxes, probs, demo_names, demo_alphabet, demo_classes,&countp);
+
 
     return 0;
 }
@@ -104,6 +109,8 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
     demo_hier_thresh = hier_thresh;
     printf("Demo\n");
     net = parse_network_cfg(cfgfile);
+    //frame number
+    int fp;
     if(weightfile){
         load_weights(&net, weightfile);
     }
@@ -114,6 +121,10 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
     if(filename){
         printf("video file: %s\n", filename);
         cap = cvCaptureFromFile(filename);
+        //the total frames of the video
+        fp = (int)cvGetCaptureProperty(cap,CV_CAP_PROP_FRAME_COUNT);
+        //allocate the array by doubling the frame number
+        countpv = (int*)calloc(2*fp,sizeof(int));
     }else{
         cap = cvCaptureFromCAM(cam_index);
     }
@@ -154,7 +165,7 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
 
     int count = 0;
     if(!prefix){
-        cvNamedWindow("Demo", CV_WINDOW_NORMAL); 
+        cvNamedWindow("Demo", CV_WINDOW_NORMAL);
         cvMoveWindow("Demo", 0, 0);
         cvResizeWindow("Demo", 1352, 1013);
     }
@@ -166,6 +177,9 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
         if(1){
             if(pthread_create(&fetch_thread, 0, fetch_in_thread, 0)) error("Thread creation failed");
             if(pthread_create(&detect_thread, 0, detect_in_thread, 0)) error("Thread creation failed");
+            //store number of people
+            printf("the number of people:%d\n",countp);
+            countpv[count]=countp;
 
             if(!prefix){
                 show_image(disp, "Demo");
@@ -173,7 +187,7 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
                 if (c == 10){
                     if(frame_skip == 0) frame_skip = 60;
                     else if(frame_skip == 4) frame_skip = 0;
-                    else if(frame_skip == 60) frame_skip = 4;   
+                    else if(frame_skip == 60) frame_skip = 4;
                     else frame_skip = 0;
                 }
             }else{
@@ -213,6 +227,14 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
             before = after;
         }
     }
+    //save occupant number into .txt
+    FILE *output;
+    char *outputname="count.txt";
+    output = fopen(outputname,"w+");
+    for(int i=1;i<=fp;i++)
+        fprintf(output,"%d\n",countpv[i]);
+    printf("save to count.txt");
+    free(countpv);
 }
 #else
 void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const char *filename, char **names, int classes, int frame_skip, char *prefix, float hier_thresh)

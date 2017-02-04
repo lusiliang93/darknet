@@ -353,7 +353,7 @@ void validate_detector(char *datacfg, char *cfgfile, char *weightfile, char *out
         if(fps) fclose(fps[j]);
     }
     if(coco){
-        fseek(fp, -2, SEEK_CUR); 
+        fseek(fp, -2, SEEK_CUR);
         fprintf(fp, "\n]\n");
         fclose(fp);
     }
@@ -468,6 +468,11 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
         }
         image im = load_image_color(input,0,0);
         image sized = resize_image(im, net.w, net.h);
+        FILE *output;
+        char *outputname="count.txt";
+        output=fopen(outputname,"w+");
+        int countp=0;
+
         layer l = net.layers[net.n-1];
 
         box *boxes = calloc(l.w*l.h*l.n, sizeof(box));
@@ -481,9 +486,12 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
         get_region_boxes(l, 1, 1, thresh, probs, boxes, 0, 0, hier_thresh);
         if (l.softmax_tree && nms) do_nms_obj(boxes, probs, l.w*l.h*l.n, l.classes, nms);
         else if (nms) do_nms_sort(boxes, probs, l.w*l.h*l.n, l.classes, nms);
-        draw_detections(im, l.w*l.h*l.n, thresh, boxes, probs, names, alphabet, l.classes);
+        draw_detections(im, l.w*l.h*l.n, thresh, boxes, probs, names, alphabet, l.classes,&countp);
         save_image(im, "predictions");
         show_image(im, "predictions");
+        fprintf(output,"%d \n",countp);
+        fclose(output);
+        //printf("count=%d",countp);
 
         free_image(im);
         free_image(sized);
