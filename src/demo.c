@@ -40,11 +40,14 @@ static float *avg;
 //an int array to store occupant number in the image of a video
 static int *countpv;
 static int countp;
+//write to the file
+static FILE *output;
 
 void *fetch_in_thread(void *ptr)
 {
     in = get_image_from_stream(cap);
     if(!in.data){
+        fclose(output);
         error("Stream closed.");
     }
     in_s = resize_image(in, net.w, net.h);
@@ -110,7 +113,7 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
     printf("Demo\n");
     net = parse_network_cfg(cfgfile);
     //frame number
-    int fp;
+    int frame;
     if(weightfile){
         load_weights(&net, weightfile);
     }
@@ -122,9 +125,9 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
         printf("video file: %s\n", filename);
         cap = cvCaptureFromFile(filename);
         //the total frames of the video
-        fp = (int)cvGetCaptureProperty(cap,CV_CAP_PROP_FRAME_COUNT);
+        frame = (int)cvGetCaptureProperty(cap,CV_CAP_PROP_FRAME_COUNT);
         //allocate the array by doubling the frame number
-        countpv = (int*)calloc(2*fp,sizeof(int));
+        countpv = (int*)calloc(2*frame,sizeof(int));
     }else{
         cap = cvCaptureFromCAM(cam_index);
     }
@@ -171,6 +174,9 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
     }
 
     double before = get_wall_time();
+    //FILE *output;
+    //char *outputname="count.txt";
+    output = fopen("count.txt","w+");
 
     while(1){
         ++count;
@@ -180,6 +186,7 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
             //store number of people
             printf("the number of people:%d\n",countp);
             countpv[count]=countp;
+            fprintf(output,"%d\n",countp);
 
             if(!prefix){
                 show_image(disp, "Demo");
@@ -227,13 +234,16 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
             before = after;
         }
     }
+//    fclose(output);
     //save occupant number into .txt
-    FILE *output;
-    char *outputname="count.txt";
-    output = fopen(outputname,"w+");
-    for(int i=1;i<=fp;i++)
-        fprintf(output,"%d\n",countpv[i]);
-    printf("save to count.txt");
+    //FILE *output;
+    //char *outputname="count.txt";
+    //output = fopen(outputname,"w+");
+    //int i;
+    //for(i=1;i<=frame;i++)
+      //  fprintf(output,"%d\n",countpv[i]);
+    //printf("save to count.txt");
+    //fclose(output);
     free(countpv);
 }
 #else
