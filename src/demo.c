@@ -42,11 +42,14 @@ static int *countpv;
 static int countp;
 //write to the file
 static FILE *output;
+//count the total frame
+static int count_f;
 
 void *fetch_in_thread(void *ptr)
 {
     in = get_image_from_stream(cap);
     if(!in.data){
+        fprintf(output,"The number of total frames:%d\n",count_f);
         fclose(output);
         error("Stream closed.");
     }
@@ -102,7 +105,7 @@ double get_wall_time()
 
 void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const char *filename, char **names, int classes, int frame_skip, char *prefix, float hier_thresh)
 {
-    //skip = frame_skip;
+    
     image **alphabet = load_alphabet();
     int delay = frame_skip;
     demo_names = names;
@@ -167,6 +170,7 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
     }
 
     int count = 0;
+    count_f = 0;
     if(!prefix){
         cvNamedWindow("Demo", CV_WINDOW_NORMAL);
         cvMoveWindow("Demo", 0, 0);
@@ -180,9 +184,13 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
 
     while(1){
         ++count;
+        ++count_f;
+        //printf("frame ID:%d\n",count);
         if(1){
             if(pthread_create(&fetch_thread, 0, fetch_in_thread, 0)) error("Thread creation failed");
-            if(pthread_create(&detect_thread, 0, detect_in_thread, 0)) error("Thread creation failed");
+            if(count%2==0){
+                if(pthread_create(&detect_thread, 0, detect_in_thread, 0)) error("Thread creation failed");
+            }
             //store number of people
             printf("the number of people:%d\n",countp);
             countpv[count]=countp;
@@ -191,6 +199,7 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
             if(!prefix){
                 show_image(disp, "Demo");
                 int c = cvWaitKey(1);
+                //printf("c is %d\n",c);
                 if (c == 10){
                     if(frame_skip == 0) frame_skip = 60;
                     else if(frame_skip == 4) frame_skip = 0;
@@ -202,9 +211,11 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
                 sprintf(buff, "%s_%08d", prefix, count);
                 save_image(disp, buff);
             }
-
+        
             pthread_join(fetch_thread, 0);
+            if(count%2==0){
             pthread_join(detect_thread, 0);
+            }
 
             if(delay == 0){
                 free_image(disp);
